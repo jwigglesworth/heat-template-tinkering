@@ -1,0 +1,107 @@
+heat_template_version: 2013-05-23
+ 
+description: Template to deploy a small Docker swarm
+ 
+parameters:
+  image:
+    type: string
+    label: Image name or ID
+    description: Image to be used for compute instance
+    default: Ubuntu Trusty 14.04
+    constraints:
+      - custom_constraint: glance.image
+  flavor:
+    type: string
+    label: Flavor
+    description: Type of instance (flavor) to be used
+    default: m1.small
+    constraints:
+     - custom_constraint: nova.flavor
+  key:
+    type: string
+    label: Key name
+    description: Name of key-pair to be used for compute instance
+    default: my_key
+    constraints:
+     - custom_constraint: nova.keypair
+  private_network:
+    type: string
+    label: Private network name or ID
+    description: Network to attach instance to.
+    default: private-net
+    constraints:
+     - custom_constraint: neutron.network
+ 
+resources:
+  swarm_secret:
+    type: OS::Heat::RandomString
+    properties:
+      length: 32
+      sequence: lettersdigits
+
+  swarm-mgr1:
+    type: OS::Nova::Server
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key }
+      networks:
+        - network: { get_param: private_network }
+      user_data:
+        str_replace:
+          params:
+            __swarm_secret__: { get_attr: [swarm_secret, value] }
+          template: |
+            #!/bin/sh
+            sudo apt-get update
+            sudo apt-get -y install apt-transport-https ca-certificates
+            sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+            touch docker.list
+            echo "deb https://apt.dockerproject.org/repo ubuntu-trusty main" >> docker.list
+            sudo mv docker.list /etc/apt/sources.list.d/
+            sudo apt-get update
+            sudo apt-get purge lxc-docker
+            sudo apt-get -y install apparmor
+            # install the latest official version
+            sudo apt-cache policy docker-engine
+            sudo apt-get -y install docker-engine
+            sudo service docker start
+            # install latest development version from Git
+            # curl -fsSL https://test.docker.com/ | sh
+            # sudo docker swarm init --auto-accept manager --auto-accept worker --secret __swarm_secret__
+            sudo docker swarm init
+            sudo docker swarm join-token --quiet worker 
+
+  swarm-wkr1:
+    type: OS::Nova::Server
+    depends_on: swarm-mgr1
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key }
+      networks:
+        - network: { get_param: private_network }
+      user_data:
+        str_replace:
+          params:
+            __swarm_secret__: { get_attr: [swarm_secret, value] }
+            __swarm_mgr1_ip__: { get_attr: [swarm-mgr1, first_address] }
+          template: |
+            #!/bin/sh
+            # install latest development version from Git
+            curl -fsSL https://test.docker.com/ | sh
+            sudo docker swarm join --secret __swarm_secret__ __swarm_mgr1_ip__:2377
+ 
+outputs:
+  swarm_mgr1_name:
+    description: Name of the swarm-mgr1
+    value: { get_attr: [swarm-mgr1, name] }
+  swarm_mgr1_ip:
+    description: IP address of the swarm-mgr1
+    value: { get_attr: [swarm-mgr1, first_address] }
+  swarm_wkr1_name:
+    description: Name of the swarm-wkr1
+    value: { get_attr: [swarm-wkr1, name] }
+  swarm_wkr1_ip:
+    description: IP address of the swarm-wkr1
+    value: { get_attr: [swarm-wkr1, first_address] }
