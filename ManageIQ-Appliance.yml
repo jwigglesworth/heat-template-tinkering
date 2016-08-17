@@ -1,0 +1,69 @@
+heat_template_version: 2013-05-23
+
+description: >
+  Created 8/11/16 by wiggles@ca.ibm.com.
+
+parameters:
+  flavor:
+    type: string
+    description: 'Flavor to be used for compute instance'
+    default: 'm1.large'
+    constraints:
+      - allowed_values:
+        - m1.large
+        - m1.xlarge
+  availability_zone:
+    type: string
+    description: 'Name of availability zone in which to create the instance'
+    default: 'compute_enterprise'
+    constraints:
+     - allowed_values:
+       - internal
+       - compute_enterprise
+  image:
+    type: string
+    description: Image ID or image name to use for the server
+    default: 'ManageIQ'
+    constraints:
+      - custom_constraint: glance.image
+  network-id__for__internal:
+    type: string
+    description: 'Network to be used.'
+    default: 'internal'
+    constraints:
+    - {custom_constraint: neutron.network}
+
+parameter_groups:
+    - { label: 'Image Parameters', parameters: [image, flavor, availability_zone] }
+    - { label: 'Network Parameters', parameters: [network-id__for__internal] }
+
+resources:
+
+  ManageIQ:
+    type: OS::Nova::Server
+    properties:
+      networks:
+          - port: { get_resource: ManageIQ__to__internal__port  }
+      name: "ManageIQ"
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      availability_zone: { get_param: availability_zone }
+
+
+  ManageIQ__to__internal__port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: network-id__for__internal }
+      replacement_policy: AUTO
+
+outputs:
+  ManageIQ_IP:
+    description: IP address of the deployed server
+    value: { get_attr: [ManageIQ, first_address] }
+  ManageIQ_Console:
+    description: URL for accessing the ManageIQ console
+    value:
+      str_replace:
+        template: https://host-ip/
+        params:
+          host-ip: { get_attr: [ManageIQ, first_address] }
