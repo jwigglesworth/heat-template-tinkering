@@ -2,6 +2,8 @@ heat_template_version: 2013-05-23
 
 description: >
   Created 8/11/16 by wiggles@ca.ibm.com.
+  Uses the ManageIQ image available at
+  http://manageiq.org/download/manageiq-openstack-darga-2.qc2
 
 parameters:
   flavor:
