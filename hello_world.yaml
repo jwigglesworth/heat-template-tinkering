@@ -30,12 +30,9 @@ parameters:
     description: Admin password
     hidden: true
     constraints:
-      - length: { min: 6, max: 8 }
-        description: Password length must be between 6 and 8 characters
+      - length: { min: 6, max: 24 }
+        description: Password length must be between 6 and 24 characters
       - allowed_pattern: "[a-zA-Z0-9]+"
-        description: Password must consist of characters and numbers only
-      - allowed_pattern: "[A-Z]+[a-zA-Z0-9]*"
-        description: Password must start with an uppercase character
   db_port:
     type: number
     description: >
