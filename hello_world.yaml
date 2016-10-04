@@ -38,7 +38,7 @@ parameters:
     description: >
       Database port number, used as an example of a parameter used
       in the cloud-init configuration
-    default: 70000
+    default: 50000
     constraints:
       - range: { min: 40000, max: 60000 }
         description: Port number must be between 40000 and 60000
